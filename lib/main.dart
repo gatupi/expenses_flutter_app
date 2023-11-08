@@ -71,8 +71,10 @@ class ExpensesApp extends StatelessWidget {
 
 class TransactionCard extends StatelessWidget {
   Transaction _transaction;
+  int position;
+  void Function() _onExpenseDeleted;
 
-  TransactionCard(this._transaction);
+  TransactionCard(this._transaction, this.position, this._onExpenseDeleted);
 
   String _formatDateTime(DateTime dateTime) {
     final parts = {
@@ -94,7 +96,7 @@ class TransactionCard extends StatelessWidget {
         child: Row(children: <Widget>[
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            padding: EdgeInsets.all(10),
+            padding: EdgeInsets.all(7),
             decoration: BoxDecoration(
                 border: Border.all(
               width: 2,
@@ -102,37 +104,47 @@ class TransactionCard extends StatelessWidget {
             )),
             child: Text(
               'R\$ ${_transaction.value.toStringAsFixed(2).replaceFirst('.', ',')}',
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.purple,
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: 16,
               ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                _transaction.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+          Flexible(
+            flex: 1,
+            fit: FlexFit.tight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '$position. ${_transaction.title}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-              Text(
-                DateFormat('d MMM y hh:mm').format(_transaction.dateTime),
-                style: const TextStyle(color: Colors.grey),
-              )
-            ],
+                Text(
+                  DateFormat('d MMM y hh:mm').format(_transaction.dateTime),
+                  style: const TextStyle(color: Colors.grey),
+                )
+              ],
+            ),
+          ),
+          Container(
+            child: TextButton(
+              child: Text('x'),
+              onPressed: _onExpenseDeleted,
+            ),
           )
         ]),
       );
 }
 
 class ExpenseFormState extends State<ExpenseForm> {
-
-  double? _value;
-  String? _title;
+  final _titleController = TextEditingController();
+  final _valueController = TextEditingController();
   void Function(Transaction)? _onExpenseAdded;
 
   ExpenseFormState(this._onExpenseAdded);
@@ -146,21 +158,27 @@ class ExpenseFormState extends State<ExpenseForm> {
                 margin: const EdgeInsets.only(bottom: 10),
                 child: TextField(
                   decoration: const InputDecoration(labelText: 'Título'),
-                  onChanged: (value) => setState(() => _title = value),
+                  controller: _titleController,
                 )),
             TextField(
               decoration: const InputDecoration(
                 labelText: 'Valor (R\$)',
               ),
-              onChanged: (value) => setState(() {
-                _value = double.parse(value);
-              }),
+              controller: _valueController,
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () => _onExpenseAdded!.call((Transaction(id: '123', title: _title!, value: _value!))),
+                  onPressed: () {
+                    _onExpenseAdded!.call(Transaction(
+                        id: '123',
+                        title: _titleController.text,
+                        value: double.parse(_valueController.text)));
+
+                    _titleController.text = '';
+                    _valueController.text = '';
+                  },
                   style: const ButtonStyle(
                       foregroundColor:
                           MaterialStatePropertyAll<Color>(Colors.purple)),
@@ -174,7 +192,6 @@ class ExpenseFormState extends State<ExpenseForm> {
 }
 
 class ExpenseForm extends StatefulWidget {
-
   void Function(Transaction)? _onExpenseAdded;
 
   ExpenseForm(this._onExpenseAdded);
@@ -230,9 +247,14 @@ class MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-            Column(
-              children: _transactions.map((t) => TransactionCard(t)).toList(),
-            ),
+            Flexible(
+                flex: 1,
+                child: ListView(
+                    children: _transactions
+                        .asMap()
+                        .entries
+                        .map((e) => TransactionCard(e.value, e.key + 1, () => setState(() => _transactions.removeAt(e.key))))
+                        .toList())),
             ExpenseForm((t) => setState(() => _transactions.add(t)))
           ],
         ));
